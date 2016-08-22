@@ -27,7 +27,7 @@ payload_addr        equ 0x23F00000
 
     copy_loop:
         ldmia r1!, {r3,r4,r12,lr}
-        subs r2, #0x20
+        subs r2, #0x10
         stmia r0!, {r3,r4,r12,lr}
         bne copy_loop
 
