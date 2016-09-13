@@ -1,7 +1,6 @@
 .arm.little
 
-itcm_payload_addr   equ 0x01FF9000
-payload_addr        equ 0x23F00000
+payload_addr equ 0x1FFF900
 
 .create "reboot.bin", 0
 .arm
@@ -20,16 +19,6 @@ payload_addr        equ 0x23F00000
             ldr r0, [r0, #0xC]
         cmp r0, r2
         bne pxi_wait_recv
-
-    ldr r0, =payload_addr
-    ldr r1, =itcm_payload_addr
-    mov r2, 0x800
-
-    copy_loop:
-        ldmia r1!, {r3,r4,r12,lr}
-        subs r2, #0x10
-        stmia r0!, {r3,r4,r12,lr}
-        bne copy_loop
 
     ; Copy the last digits of the wanted firm to the 5th byte of the payload
     add r2, sp, #0x3A8 - 0x70
@@ -60,11 +49,6 @@ payload_addr        equ 0x23F00000
 .align 4
     ; Flush cache
     kernelcode_start:
-
-    ; Disable MPU
-    ldr r0, =0x42078  ; alt vector select, enable itcm
-    mcr p15, 0, r0, c1, c0, 0
-
     mov r1, #0                          ; segment counter
     outer_loop:
         mov r0, #0                      ; line counter
