@@ -1,13 +1,18 @@
 .arm.little
 
-payload_addr equ 0x1FFF900
+dst_addr equ 0x24000000   ; Brahma payload address.
+dst_size equ 0x00400000
 
 .create "reboot.bin", 0
 .arm
-    ; Interesting registers and locations to keep in mind, set before this code is ran:
-    ; - sp + 0x3A8 - 0x70: FIRM path in exefs.
-    ; - r7 (which is sp + 0x3A8 - 0x198): Reserved space for file handle
-    ; - *(sp + 0x3A8 - 0x198) + 0x28: fread function.
+    ; Interesting registers and locations to keep in mind, set just before this code is ran:
+    ; - r1: FIRM path in exefs.
+    ; - r7: pointer to file object
+    ;   - *r7: vtable
+    ;       - *(vtable + 0x28): fread function 
+    ;   - *(r7 + 8): file handle
+
+    mov r8, r1
 
     pxi_wait_recv:
         ldr r2, =0x44846
@@ -20,13 +25,32 @@ payload_addr equ 0x1FFF900
         cmp r0, r2
         bne pxi_wait_recv
 
-    ; Copy the last digits of the wanted firm to the 5th byte of the payload
-    add r2, sp, #0x3A8 - 0x70
-    ldr r0, [r2, #0x27]
-    ldr r1, =payload_addr + 4
-    str r0, [r1]
-    ldr r0, [r2, #0x2B]
-    str r0, [r1, #4]
+    ; Open file
+    add r0, r7, #8
+    adr r1, fname
+    mov r2, #1
+    ldr r6, [fopen]
+    orr r6, 1
+    blx r6
+    
+    ; Read file
+    mov r0, r7
+    adr r1, bytes_read
+    ldr r2, =dst_addr
+    ldr r3, =dst_size
+    ldr r6, [r7]
+    ldr r6, [r6, #0x28]
+    blx r6
+
+    ; Copy the low TID (in UTF-16) of the wanted firm to the 5th byte of the payload
+    add r0, r8, 0x1A
+    add r1, r0, #0x10
+    ldr r2, =dst_addr + 4
+    copy_TID_low:
+        ldrh r3, [r0], #2
+        strh r3, [r2], #2
+        cmp r0, r1
+        blo copy_TID_low
 
     ; Set kernel state
     mov r0, #0
@@ -38,17 +62,25 @@ payload_addr equ 0x1FFF900
     goto_reboot:
         ; Jump to reboot code
         ldr r0, =(kernelcode_start - goto_reboot - 12)
-        add r0, pc
+        add r0, pc ; pc is two instructions ahead of the instruction being executed (12 = 2*4 + 4)
         swi 0x7B
 
     die:
         b die
 
+bytes_read: .word 0
+fopen: .ascii "OPEN"
 .pool
+fname:  .dcw "firm1:/"
 
 .align 4
-    ; Flush cache
     kernelcode_start:
+
+    ; Disable MPU
+    ldr r0, =0x42078  ; alt vector select, enable itcm
+    mcr p15, 0, r0, c1, c0, 0
+
+    ; Clean and flush data cache
     mov r1, #0                          ; segment counter
     outer_loop:
         mov r0, #0                      ; line counter
@@ -70,7 +102,7 @@ payload_addr equ 0x1FFF900
     mcr p15, 0, r1, c7, c5, 0
 
     ; Jump to payload
-    ldr r0, =payload_addr
+    ldr r0, =dst_addr + 0x2D0000 + 0x14
     bx r0
 
 .pool

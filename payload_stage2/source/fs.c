@@ -40,7 +40,7 @@ u32 fileRead(void *dest, const char *path)
     return size;
 }
 
-void firmRead(void *dest, u32 firmType)
+u32 firmRead(void *dest, u32 firmType)
 {
     const char *firmFolders[4][2] = {{ "00000002", "20000002" },
                                      { "00000102", "20000102" },
@@ -75,6 +75,8 @@ void firmRead(void *dest, u32 firmType)
         if(tempId < id) id = tempId;
     }
 
+    u32 firmVersion = id;
+
     f_closedir(&dir);
 
     //Complete the string with the .app name
@@ -92,4 +94,6 @@ void firmRead(void *dest, u32 firmType)
     }
 
     fileRead(dest, path);
+
+    return firmVersion;
 }

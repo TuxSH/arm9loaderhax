@@ -27,8 +27,8 @@ static inline u32 patchNativeFirm(void)
     }
 
     //Find the Process9 .code location, size and memory address
-    u32 process9Size;
-    u8 *process9Offset = getProcess9(arm9Section + 0x15000, section[2].size - 0x15000, &process9Size);
+    u32 process9Size, process9MemAddr;
+    u8 *process9Offset = getProcess9(arm9Section + 0x15000, section[2].size - 0x15000, &process9Size, &process9MemAddr);
 
     u32 ret = 0;
 
@@ -38,7 +38,7 @@ static inline u32 patchNativeFirm(void)
     //Apply FIRM0/1 writes patches on sysNAND to protect A9LH
     ret += patchFirmWrites(process9Offset, process9Size);
 
-    ret += patchFirmlaunches(process9Offset, process9Size);
+    ret += patchFirmlaunches(process9Offset, process9Size, process9MemAddr);
 
     return ret;
 }
@@ -95,7 +95,7 @@ void loadFirm(void)
     //'0' = NATIVE_FIRM, '1' = TWL_FIRM, '2' = AGB_FIRM
     else firmType = *(vu8 *)0x08006009 == '3' ? 3 : *(vu8 *)0x08006005 - '0';
 
-    firmRead(firm, firmType);
+    if(firmRead(firm, firmType) < 0x18 && firmType == 0) firmType = 3;
     decryptExeFs((u8 *)firm);
 
     section = firm->section;

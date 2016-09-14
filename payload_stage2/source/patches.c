@@ -6,11 +6,12 @@
 #include "memory.h"
 #include "../build/bundled.h"
 
-u8 *getProcess9(u8 *pos, u32 size, u32 *process9Size)
+u8 *getProcess9(u8 *pos, u32 size, u32 *process9Size, u32 *process9MemAddr)
 {
     u8 *off = memsearch(pos, "ess9", size, 4);
 
     *process9Size = *(u32 *)(off - 0x60) * 0x200;
+    *process9MemAddr = *(u32 *)(off + 0xC);
 
     //Process9 code offset (start of NCCH + ExeFS offset + ExeFS header size)
     return off - 0x204 + (*(u32 *)(off - 0x64) * 0x200) + 0x200;
@@ -38,22 +39,22 @@ u32 patchSignatureChecks(u8 *pos, u32 size)
     return 0;
 }
 
-u32 patchFirmlaunches(u8 *pos, u32 size)
+u32 patchFirmlaunches(u8 *pos, u32 size, u32 process9MemAddr)
 {
     //Look for firmlaunch code
-    const u8 pattern[] = {0xDE, 0x1F, 0x8D, 0xE2};
+    const u8 pattern[] = {0xE2, 0x20, 0x20, 0x90};
 
-    u8 *offTmp = memsearch(pos, pattern, size, 4);
+    u8 *off = memsearch(pos, pattern, size, sizeof(pattern)) - 0x13;
 
-    if(offTmp == NULL) return 1;
-
-    u8 *off = offTmp - 0x10;
+    //Firmlaunch function offset - offset in BLX opcode (A4-16 - ARM DDI 0100E) + 1
+    u32 fOpenOffset = (u32)(off + 9 - (-((*(u32 *)off & 0x00FFFFFF) << 2) & (0xFFFFFF << 2)) - pos + process9MemAddr);
 
     //Copy firmlaunch code
     memcpy(off, reboot_bin, reboot_bin_size);
 
-    //Copy itcm stub
-    memcpy((void *)0x1FFF900, itcmstub_bin, itcmstub_bin_size);
+    //Put the fOpen offset in the right location
+    u32 *pos_fopen = (u32 *)memsearch(off, "OPEN", reboot_bin_size, 4);
+    *pos_fopen = fOpenOffset;
 
     return 0;
 }

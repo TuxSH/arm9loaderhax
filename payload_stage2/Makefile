@@ -25,7 +25,7 @@ objects = $(patsubst $(dir_source)/%.s, $(dir_build)/%.o, \
           $(patsubst $(dir_source)/%.c, $(dir_build)/%.o, \
           $(call rwildcard, $(dir_source), *.s *.c)))
 
-bundledobjects = $(dir_build)/arm11.bin.o $(dir_build)/launcher.bin.o $(dir_build)/itcmstub.bin.o $(dir_build)/reboot.bin.o
+bundledobjects = $(dir_build)/arm11.bin.o $(dir_build)/launcher.bin.o $(dir_build)/reboot.bin.o
 
 define bin2o
 	bin2s $< | $(AS) -o $(@)
